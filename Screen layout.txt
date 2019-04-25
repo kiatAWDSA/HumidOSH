@@ -13,6 +13,12 @@
 >>>> Fan:  10000 RPM
 
 
+(ALTERNATIVE READINGS SCREEN FOR TEMPERATURE TOO)
+      Readings      
+       T:  100.0 C
+>>>>  RH:  100.0 %  
+>>>> Fan:  10000 RPM
+
 
 Relative humidity(%)
 Set:100.0 Read:100.0

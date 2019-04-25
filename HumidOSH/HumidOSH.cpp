@@ -163,8 +163,10 @@ void HumidOSH::init()
 
   // Default values until the measurements are made.
   humidity_ = 0;
-  temperature_ = 0;
   fanSpeed_ = 0;
+#ifdef MEASURE_TEMPERATURE
+  temperature_ = 0;
+#endif // MEASURE_TEMPERATURE
 }
 
 // The main function that should be called in loop().
@@ -620,11 +622,16 @@ void HumidOSH::updateScreen()
       resetScreen();
       screen_.setCursor(6, 0);
       screen_.print("Readings");
+    #ifdef MEASURE_TEMPERATURE
+      screen_.setCursor(7, ROW_READING_TEMPERATURE);
+      screen_.print("T:        C");
+    #else
       screen_.setCursor(0, 1);
       screen_.print("--------------------");
-      screen_.setCursor(6, 2);
+    #endif // MEASURE_TEMPERATURE
+      screen_.setCursor(6, ROW_READING_HUMIDITY);
       screen_.print("RH:        %");
-      screen_.setCursor(5, 3);
+      screen_.setCursor(5, ROW_READING_FANSPEED);
       screen_.print("Fan:        RPM");
 
       /* Alternative display

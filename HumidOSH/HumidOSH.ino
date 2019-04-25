@@ -56,9 +56,9 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 // The RH sensor actually measures temperature too.
 // By default, this functionality is not utilized because the equipment is expected to be operated at room temperature.
-// Setting MEASURE_TEMPERATURE to 1 will enable temperature measurement. The temperature reading
+// Uncommenting MEASURE_TEMPERATURE will enable temperature measurement. The temperature reading
 // will be displayed on the second line of the screen displaying the readings.
-#define MEASURE_TEMPERATURE 0
+// #define MEASURE_TEMPERATURE 1
 
 
 // Keypad config

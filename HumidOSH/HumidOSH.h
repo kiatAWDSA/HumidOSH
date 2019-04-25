@@ -159,7 +159,6 @@ private:
   const char PRINT_ERROR[6]                 = { 'E', 'R', 'R', 'O', 'R', CHAR_NULL };
   const char PRINT_NOREADING[4]             = { 'N', '/', 'A', CHAR_NULL };
   const uint8_t COL_READING_RIGHTMOST       = 15;
-  const uint8_t ROW_READING_TEMPERATURE     = 2;
   const uint8_t ROW_READING_HUMIDITY        = 2;
   const uint8_t ROW_READING_FANSPEED        = 3;
   void printValueRightAligned(const double & value, const uint8_t & decimalsMax, const uint8_t & rightmostColNumber, const uint8_t & rowNumber);
@@ -245,9 +244,12 @@ private:
   void setHumidityTarget(double targetPercent);
   void setPumpDutyCycle(uint8_t dutyCycle);
 
+#ifdef MEASURE_TEMPERATURE
   // Temperature
+  const uint8_t ROW_READING_TEMPERATURE = 2;
   const uint8_t TEMPERATURE_DECIMALS = 1; // Number of decimal places displayed for temperature.
   double temperature_;
+#endif // MEASURE_TEMPERATURE
 
   // Fan speed
   bool fanSpeedOK_;
