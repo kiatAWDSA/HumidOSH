@@ -44,6 +44,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 *********************************************************************************/
 
 #include "HumidOSH.h"
+#include "SerialCommunication.h"
 #include <EEPROM.h>
 #include <EMC2301.h>
 #include <serLCD_cI2C.h>
@@ -53,12 +54,6 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 #include <Keypad.h>
 #include <Key.h>
 #include <I2C.h>
-
-// The RH sensor actually measures temperature too.
-// By default, this functionality is not utilized because the equipment is expected to be operated at room temperature.
-// Uncommenting MEASURE_TEMPERATURE will enable temperature measurement. The temperature reading
-// will be displayed on the second line of the screen displaying the readings.
-// #define MEASURE_TEMPERATURE 1
 
 
 // Keypad config
@@ -71,20 +66,20 @@ const uint16_t KEY_HOLD_DURATION  = 3000; // Duration (ms) that the key must be 
 
 // Pins
 const uint8_t PIN_PUMP          = 9; // This must be pin 9 or 10 because they are affected by Timer 1 which will be configured to 25 kHz for PWM.
-const uint8_t PIN_VALVE_DRY     = A2;
-const uint8_t PIN_VALVE_WET     = A3;
-const uint8_t PIN_FAN_PWMDRAIN  = A1;
+const uint8_t PIN_VALVE_DRY     = A0;
+const uint8_t PIN_VALVE_WET     = A1;
+const uint8_t PIN_FAN_PWMDRAIN  = A2;
 uint8_t PIN_KEY_ROW[KEY_ROWS] = { 3, 8, 7, 5 }; // connect to the row pinouts of the keypad
 uint8_t PIN_KEY_COL[KEY_COLS] = { 4, 2, 6, 11 }; // connect to the column pinouts of the keypad
 const uint8_t PIN_LED_RH        = 12;
-const uint8_t PIN_LED_FAN       = A0;
+const uint8_t PIN_LED_FAN       = A3;
 
 // Limits for controlling humidity and fan speed. This would depend on the system characteristics.
 // For example, all fans have a maximum speed, and some fans have a minimum RPM, below which the fan just stops working.
 // These limits are important to prevent the user from inadvertently setting a target which is unachievable.
 const double RH_MIN         = 0;    // %
 const double RH_MAX         = 100;  // %
-const uint8_t PUMP_MIN      = 60;   // Duty cycle expressed in byte format: min is 0, max is 255. Convert the duty cycle percentage accordingly.
+const uint8_t PUMP_MIN      = 70;   // Duty cycle expressed in byte format: min is 0, max is 255. Convert the duty cycle percentage accordingly.
 const uint8_t PUMP_MAX      = 255;  // See above. Note that the pump doesn't operate below a certain duty cycle.
 const double FANSPEED_USER_MIN  = 1200;   // The minimum fan speed (RPM) allowed for user input.
 const double FANSPEED_USER_MAX  = 7500;   // The maximum fan speed (RPM) allowed for user input.
@@ -96,9 +91,13 @@ const uint8_t  FAN_DRIVE_MIN    = 30;  // The minimum drive/duty cycle (0 to 255
                                           // This value should be adjusted such that the fan speed can dip to FANSPEED_USER_MIN without violating FANSPEED_ABS_MIN.
 
 // Humidity PID settings
-const double PID_RH_KP = 300;
+const double PID_RH_KP = 5;
 const double PID_RH_KI = 0.001;
 const double PID_RH_KD = 0;
+
+// Serial communication with computer
+const unsigned long baudRate = 9600;
+SerialCommunication communicator = SerialCommunication();
 
 // Init keypad
 char keys[KEY_ROWS][KEY_COLS] = { { '1','2','3','s' },    // s for changing control 's'ettings.
@@ -108,7 +107,7 @@ char keys[KEY_ROWS][KEY_COLS] = { { '1','2','3','s' },    // s for changing cont
 Keypad keypad = Keypad(makeKeymap(keys), PIN_KEY_ROW, PIN_KEY_COL, KEY_ROWS, KEY_COLS);
 
 // Main class
-HumidOSH chamber = HumidOSH(&I2c, &keypad,
+HumidOSH chamber = HumidOSH(&communicator, &I2c, &keypad,
                             PIN_PUMP, PIN_VALVE_DRY, PIN_VALVE_WET, PIN_FAN_PWMDRAIN, PIN_LED_RH, PIN_LED_FAN,
                             RH_MIN, RH_MAX, PUMP_MIN, PUMP_MAX, FANSPEED_USER_MIN, FANSPEED_USER_MAX, FANSPEED_ABS_MIN, FAN_DRIVE_MIN,
                             PID_RH_KP, PID_RH_KI, PID_RH_KD,
@@ -138,6 +137,8 @@ void setup()
   keypad.setHoldTime(KEY_HOLD_DELAY);
   keypad.addEventListener(keypadEvent); //add an event listener for this keypad
 
+  communicator.init(baudRate);
+
   chamber.init();
 
   // TODELETE
@@ -154,4 +155,63 @@ void loop()
 void keypadEvent(KeypadEvent key)
 {
   chamber.handleKeyPress(key);
+}
+
+// Function that is called whenever serial data is received
+void serialEvent() {
+  /* The Serial buffer is only checked at the end of each loop() iteration:
+  * https://forum.arduino.cc/index.php?topic=166650.0
+  * This means more than one command could accumulate in the buffer during a single loop() iteration.
+  * It is thus necessary to go thru the entire buffer until we are sure it is empty.
+  * This can be done by re-checking the buffer [Serial.available()] after processing one command from the buffer:
+  * https://arduino.stackexchange.com/a/26416
+  */
+  while (Serial.available())
+  {
+    if (communicator.processIncoming())
+    {
+      char commandType = communicator.getFragmentChar(0);
+      // Check the type of command
+      switch (commandType)
+      {
+        case SerialCommunication::SERIAL_CMD_DAQ_START:
+        {
+          /*********************************
+          *           START DAQ            *
+          * *******************************/
+          /* Begin data acquisition of relative humidity, temperature, fan speed, and setpoints.
+          * Format:
+          * ^d@
+          * where    ^            is SERIAL_CMD_START
+          *          d            is SERIAL_CMD_DAQ_START
+          *          @            is SERIAL_CMD_END
+          */
+          chamber.startSendData();
+          communicator.sendCommandResponse(SerialCommunication::SERIAL_CMD_DAQ_START, true);
+          break;
+        }
+        case SerialCommunication::SERIAL_CMD_DAQ_STOP:
+        {
+          /*********************************
+          *            STOP DAQ            *
+          * *******************************/
+          /* Stop data acquisition.
+          * Format:
+          * ^s|[commandID]@
+          * where    ^            is SERIAL_CMD_START
+          *          s            is SERIAL_CMD_DAQ_STOP
+          *          @            is SERIAL_CMD_END
+          */
+          chamber.stopSendData();
+          communicator.sendCommandResponse(SerialCommunication::SERIAL_CMD_DAQ_STOP, true);
+          break;
+        }
+        default:
+        {
+          // Do nothing if unrecognized command received.
+          break;
+        }
+      }
+    }
+  }
 }

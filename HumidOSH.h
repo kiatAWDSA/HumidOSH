@@ -52,6 +52,13 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 	#include "WProgram.h"
 #endif
 
+// The RH sensor actually measures temperature too.
+// By default, this functionality is not utilized because the equipment is expected to be operated at room temperature.
+// Uncommenting MEASURE_TEMPERATURE will enable temperature measurement. The temperature reading
+// will be displayed on the second line of the screen displaying the readings.
+//#define DISPLAY_TEMPERATURE 1
+
+#include "SerialCommunication.h"
 #include <EMC2301.h>
 #include <serLCD_cI2C.h>
 #include <SPI.h>
@@ -76,7 +83,7 @@ const uint8_t PIN_LED_FAN       = 2;
 class HumidOSH
 {
 public:
-  HumidOSH( I2C* i2cWire, Keypad* keypad, // class ref
+  HumidOSH( SerialCommunication* communicator, I2C* i2cWire, Keypad* keypad, // class ref
             uint8_t pinPump, uint8_t pinValveDry, uint8_t pinValveWet, uint8_t pinFanPWMDrain, uint8_t pinLEDRH, uint8_t pinLEDFan, // pins
             double humidityMin, double humidityMax, uint8_t pumpDutyCycleMin, uint8_t pumpDutyCycleMax, double fanSpeedMin, double fanSpeedMax, double fanSpeedAbsMin, double fanMinDrive,  // Limits for the controls
             double humidityKp, double humidityKi, double humidityKd, // PID params
@@ -86,8 +93,11 @@ public:
   void init();
   void run();
   void handleKeyPress(KeypadEvent key);
+  void startSendData();
+  void stopSendData();
 
 private:
+  SerialCommunication* communicator_;
   I2C* i2cWire_;
   Keypad* keypad_;
   SHT3x humiditySensor_;
@@ -244,12 +254,13 @@ private:
   void setHumidityTarget(double targetPercent);
   void setPumpDutyCycle(uint8_t dutyCycle);
 
-#ifdef MEASURE_TEMPERATURE
   // Temperature
-  const uint8_t ROW_READING_TEMPERATURE = 2;
-  const uint8_t TEMPERATURE_DECIMALS = 1; // Number of decimal places displayed for temperature.
   double temperature_;
-#endif // MEASURE_TEMPERATURE
+#ifdef DISPLAY_TEMPERATURE
+  // Temperature
+  const uint8_t ROW_READING_TEMPERATURE = 1;
+  const uint8_t TEMPERATURE_DECIMALS = 1; // Number of decimal places displayed for temperature.
+#endif // DISPLAY_TEMPERATURE
 
   // Fan speed
   bool fanSpeedOK_;
@@ -264,6 +275,9 @@ private:
   bool getFanSpeed();
   bool updateFanSpeedTarget(double targetRPM);
   bool toggleFanSpeedControl(bool enable);
+
+  // Serial communication
+  bool sendData_ = false;
 
   // On/off functions
   void togglePump(bool enable);

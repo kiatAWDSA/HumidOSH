@@ -45,13 +45,14 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 #include "HumidOSH.h"
 
-HumidOSH::HumidOSH( I2C* i2cWire, Keypad* keypad, // class ref
+HumidOSH::HumidOSH( SerialCommunication* communicator, I2C* i2cWire, Keypad* keypad, // class ref
                     uint8_t pinPump, uint8_t pinValveDry, uint8_t pinValveWet, uint8_t pinFanPWMDrain, uint8_t pinLEDRH, uint8_t pinLEDFan, // pins
                     double humidityMin, double humidityMax, uint8_t pumpDutyCycleMin, uint8_t pumpDutyCycleMax, double fanSpeedMin, double fanSpeedMax, double fanSpeedAbsMin, double fanMinDrive,  // Limits for the controls
                     double humidityKp, double humidityKi, double humidityKd,  // PID params
                     uint16_t keyHoldDuration
                   )
   :
+  communicator_(communicator),
   i2cWire_(i2cWire),
   keypad_(keypad),
   pinPump_(pinPump),
@@ -164,9 +165,7 @@ void HumidOSH::init()
   // Default values until the measurements are made.
   humidity_ = 0;
   fanSpeed_ = 0;
-#ifdef MEASURE_TEMPERATURE
   temperature_ = 0;
-#endif // MEASURE_TEMPERATURE
 }
 
 // The main function that should be called in loop().
@@ -206,6 +205,12 @@ void HumidOSH::run()
       }
 
       humidityTriggered_ = false;
+
+      // Send data to computer, if necessary. Note that the sending frequency is the same as PERIOD_DAQ.
+      if (sendData_)
+      {
+        communicator_->sendData(humidityOK_, humidity_, temperature_, fanSpeedOK_, fanSpeed_, humidityControlActive_, humidityTarget_, fanSpeedControlActive_, fanSpeedTarget_);
+      }
     }
     else if (!humidityTriggered_)
     {// Trigger the SHT3x sensor to perform a measurement.
@@ -224,16 +229,27 @@ void HumidOSH::run()
       { // Got a new reading
         newHumidityReadingControl_ = false;
 
+        
         if (humidityErrorHandlingActive_)
         { // Just recovered from an error but don't start control just yet; instead restart the control PID
           // and assign the current reading as the "last" value that will be used in the next control loop.
           humidityErrorHandlingActive_ = false;
+          
+          /* REMOVED: RH error handling
+           Ideally, whenever the RH sensor has an error, the PID algorithm should reset so that the RH control doesn't
+           abruptly start from the previous state before error occured. However, the system currently has a bug where
+           scrolling thru LCD screen will cause an error, thus restarting control. Since the user should NOT expect
+           a control restart just by scrolling thru menu, this error handling is disabled for now. This means the system
+           will return to previous known state before error happened. Note that this can result in large PID integral term if
+           the time delay caused by the error is large enough.
           humidityPID_.Reset();
+          */
           humidityPID_.setLastInput(humidity_);
           humidityPID_.setLastTime(millis());
         }
         else
-        { // Everything is fine and dandy; proceed to perform control on RH.
+        {
+          // Everything is fine and dandy; proceed to perform control on RH.
           humidityPID_.Compute(millis());
 
           if (humidityControlOutput_ >= pumpDutyCycleMin_)
@@ -504,6 +520,18 @@ void HumidOSH::handleKeyPress(KeypadEvent key)
   }
 }
 
+// Send data and setpoints to computer every time data is acquired.
+void HumidOSH::startSendData()
+{
+  sendData_ = true;
+}
+
+// Stop sending data to computer.
+void HumidOSH::stopSendData()
+{
+  sendData_ = false;
+}
+
 bool HumidOSH::retryFunc(bool(HumidOSH::* func)())
 {
   uint8_t tries = 0;
@@ -622,13 +650,13 @@ void HumidOSH::updateScreen()
       resetScreen();
       screen_.setCursor(6, 0);
       screen_.print("Readings");
-    #ifdef MEASURE_TEMPERATURE
+    #ifdef DISPLAY_TEMPERATURE
       screen_.setCursor(7, ROW_READING_TEMPERATURE);
       screen_.print("T:        C");
     #else
       screen_.setCursor(0, 1);
       screen_.print("--------------------");
-    #endif // MEASURE_TEMPERATURE
+    #endif // DISPLAY_TEMPERATURE
       screen_.setCursor(6, ROW_READING_HUMIDITY);
       screen_.print("RH:        %");
       screen_.setCursor(5, ROW_READING_FANSPEED);
@@ -645,9 +673,9 @@ void HumidOSH::updateScreen()
       {
         printReadingRightAligned(humidity_, INPUT_HUMIDITY_DECIMALS, MAXCHAR_READINGS, COL_READING_RIGHTMOST, ROW_READING_HUMIDITY);
 
-      #ifdef MEASURE_TEMPERATURE
+      #ifdef DISPLAY_TEMPERATURE
         printReadingRightAligned(temperature_, TEMPERATURE_DECIMALS, MAXCHAR_READINGS, COL_READING_RIGHTMOST, ROW_READING_TEMPERATURE);
-      #endif // MEASURE_TEMPERATURE
+      #endif // DISPLAY_TEMPERATURE
       }
       else
       {
@@ -685,9 +713,9 @@ void HumidOSH::updateScreen()
           printReadingRightAligned(humidity_, INPUT_HUMIDITY_DECIMALS, MAXCHAR_READINGS, COL_READING_RIGHTMOST, ROW_READING_HUMIDITY);
           newHumidityReadingPrint_ = false;
       
-      #ifdef MEASURE_TEMPERATURE
+      #ifdef DISPLAY_TEMPERATURE
         printReadingRightAligned(temperature_, TEMPERATURE_DECIMALS, MAXCHAR_READINGS, COL_READING_RIGHTMOST, ROW_READING_TEMPERATURE);
-      #endif // MEASURE_TEMPERATURE
+      #endif // DISPLAY_TEMPERATURE
         }
       }
       else
@@ -1449,9 +1477,7 @@ bool HumidOSH::getHumidity()
   if (this->humiditySensor_.fetchMeasurement() == SHT3X_STATUS_OK)
   {
     humidity_ = this->humiditySensor_.getRH();
-#ifdef MEASURE_TEMPERATURE
     temperature_ = this->humiditySensor_.getTemperature();
-#endif // MEASURE_TEMPERATURE
 
     return true;
   }
