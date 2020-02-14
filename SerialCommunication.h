@@ -38,7 +38,6 @@ class SerialCommunication
     static const char SERIAL_SEND_DATA                      = 'd';
     static const char SERIAL_SEND_DATA_ERROR                = 'e';
     static const char SERIAL_SEND_DATA_CONTROLINACTIVE      = 'i';
-    static const char SERIAL_SEND_TEMP_HEATERSAMPLE         = 'b';
     static const char SERIAL_SEND_CMDRESPONSE               = 'r';  // Used to indicate execution status of a received command
       static const char SERIAL_SEND_CMDRESPONSE_SUCC        = 'y';  // Success
       static const char SERIAL_SEND_CMDRESPONSE_FAIL        = 'n';  // Failed

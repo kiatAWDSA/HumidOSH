@@ -58,26 +58,15 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 // will be displayed on the second line of the screen displaying the readings.
 //#define DISPLAY_TEMPERATURE 1
 
-#include "SerialCommunication.h"
-#include <EMC2301.h>
-#include <serLCD_cI2C.h>
 #include <SPI.h>
-#include <SHT3x.h>
-#include <PID_modified.h>
-#include <Keypad.h>
-#include <Key.h>
-#include <I2C.h>
-
-
-/*
-const uint8_t PIN_VALVE_DRY     = 8;
-const uint8_t PIN_VALVE_WET     = 9;
-const uint8_t PIN_FAN_PWMDRAIN  = 6;
-uint8_t PIN_KEY_ROW[KEY_ROWS] = { 5, 4, 3, 2 }; // connect to the row pinouts of the keypad
-uint8_t PIN_KEY_COL[KEY_COLS] = { 8, 7, 6, 1 }; // connect to the column pinouts of the keypad
-const uint8_t PIN_LED_RH        = 2;
-const uint8_t PIN_LED_FAN       = 2;
-*/
+#include "SerialCommunication.h"
+#include "EMC2301.h"
+#include "serLCD_cI2C.h"
+#include "SHT3x.h"
+#include "PID_modified.h"
+#include "Keypad.h"
+#include "Key.h"
+#include "I2C.h"
 
 
 class HumidOSH

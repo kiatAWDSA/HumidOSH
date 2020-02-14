@@ -43,17 +43,13 @@ You should have received a copy of the GNU General Public License
 along with this program.  If not, see <https://www.gnu.org/licenses/>.
 *********************************************************************************/
 
-#include "HumidOSH.h"
-#include "SerialCommunication.h"
 #include <EEPROM.h>
-#include <EMC2301.h>
-#include <serLCD_cI2C.h>
 #include <SPI.h>
-#include <SHT3x.h>
-#include <PID_modified.h>
-#include <Keypad.h>
-#include <Key.h>
-#include <I2C.h>
+#include "SerialCommunication.h"
+#include "Keypad.h"
+#include "Key.h"
+#include "I2C.h"
+#include "HumidOSH.h"
 
 
 // Keypad config
@@ -69,8 +65,8 @@ const uint8_t PIN_PUMP          = 9; // This must be pin 9 or 10 because they ar
 const uint8_t PIN_VALVE_DRY     = A0;
 const uint8_t PIN_VALVE_WET     = A1;
 const uint8_t PIN_FAN_PWMDRAIN  = A2;
-uint8_t PIN_KEY_ROW[KEY_ROWS] = { 3, 8, 7, 5 }; // connect to the row pinouts of the keypad
-uint8_t PIN_KEY_COL[KEY_COLS] = { 4, 2, 6, 11 }; // connect to the column pinouts of the keypad
+uint8_t PIN_KEY_ROW[KEY_ROWS] = { 7, 2, 3, 5 }; // connect to the row pinouts of the keypad
+uint8_t PIN_KEY_COL[KEY_COLS] = { 6, 8, 4, 11 }; // connect to the column pinouts of the keypad
 const uint8_t PIN_LED_RH        = 12;
 const uint8_t PIN_LED_FAN       = A3;
 
